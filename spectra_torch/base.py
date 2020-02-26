@@ -8,18 +8,11 @@ import decimal
 import math
 import logging
 
-pi = math.pi
-
-
 # Reference: https://github.com/jameslyons/python_speech_features/
 # The style of this module mimics the `python_speech_features`
 # A details can be found in the reference.
 
 # Note that the precision of torch is float32 default. So there is a bit of gap between torch and numpy.
-
-
-# def round_half_up(number):
-#     return int(decimal.Decimal(number).quantize(decimal.Decimal('1'), rounding=decimal.ROUND_HALF_UP))
 
 
 def preemphasis(signal, preemph=0.97):
@@ -242,7 +235,7 @@ def lifter(cepstra, ceplifter=22):
     """
     if ceplifter > 0:
         nframes, numcep = cepstra.shape
-        lift = 1 + (ceplifter / 2.) * torch.sin(pi * torch.arange(numcep) / ceplifter)
+        lift = 1 + (ceplifter / 2.) * torch.sin(math.pi * torch.arange(numcep) / ceplifter)
         return lift * cepstra
     else:
         return cepstra
