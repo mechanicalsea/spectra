@@ -1,14 +1,14 @@
 # spectra_torch
 
-This library provides common spectra features from an audio signal including MFCCs and filter bank energies. This library mimics the library [`python_speech_features`](https://github.com/jameslyons/python_speech_features) but **Pytorch-style** which would give you more information.
+This library provides common spectra features from an audio signal including MFCCs and filter bank energies. This library mimics the library [`python_speech_features`](https://github.com/jameslyons/python_speech_features) but **Pytorch-style**.
 
-Use: Rui Wang. (2020, february 26). mechanicalsea/spectra: release v0.2.2 (Version 0.6.1).
+Use: Rui Wang. (2020, february 26). mechanicalsea/spectra: release v0.2.2 (Version 0.2.2).
 
 ## Installation
 
 This library is avaliable on pypi.org
 
-To install from pipit:
+To install from Pypi:
 
 ```
 pip install --upgrade spectra-torch
@@ -51,13 +51,15 @@ The difference between `spectra_torch` and `python_speech_features`:
 ## MFCC
 
 ```python
-def mfcc(signal, samplerate=16000, winlen=0.025, hoplen=0.01, numcep=13, nfilt=26, nfft=None, lowfreq=0, highfreq=None, preemph=0.97, ceplifter=22, plusEnergy=True)
+def mfcc(signal, samplerate=16000, winlen=0.025, hoplen=0.01, numcep=13, nfilt=26, 
+         nfft=None, lowfreq=0, highfreq=None, preemph=0.97, ceplifter=22, plusEnergy=True)
 ```
 
 ## Filterbank
 
 ```python
-def fbank(signal, samplerate=16000, winlen=0.025, hoplen=0.01, nfilt=26, nfft=512, lowfreq=0, highfreq=None, preemph=0.97)
+def fbank(signal, samplerate=16000, winlen=0.025, hoplen=0.01, nfilt=26, nfft=512,
+          lowfreq=0, highfreq=None, preemph=0.97)
 ```
 
 ## Reference
