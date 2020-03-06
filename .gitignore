@@ -1,4 +1,4 @@
-*.wav
+#*.wav
 *.py[cod]
 
 # C extensions

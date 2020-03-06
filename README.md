@@ -36,13 +36,13 @@ Here are [examples](https://github.com/mechanicalsea/spectra/blob/master/example
 Easy demo:
 
 ```python
-import spectra_torch as mm
+import spectra_torch.base as mm
 import torchaudio as ta
 
-sig, sr = ta.load_wav('mywav.wav')
+sig, sr = ta.load_wav('singing-01-003.wav')
 sig = sig[0]
 mfcc = mm.mfcc(sig, sr) # MFCC
-starts, detection = is_speech(sig, sr, speechlen=1) # VAD
+starts, detection = mm.is_speech(sig, sr, speechlen=1) # VAD
 ```
 
 ## Performance
