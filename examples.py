@@ -4,14 +4,28 @@ from python_speech_features import logfbank
 import scipy.io.wavfile as wav
 import time
 import torchaudio as ta
-import spectra.base as mm
 import numpy as np
+import matplotlib.pyplot as plt
+
+# import spectra_torch package
+import spectra_torch.base as mm
 
 result = lambda x: print('%.6f - %.6f - %.6f' % (np.mean(np.abs(x)), np.max(np.abs(x)), np.min(np.abs(x))))
 
 if __name__ == "__main__":
-    (rate,sig) = wav.read('singing-01-003.wav')
-    signal, sr = ta.load_wav('singing-01-003.wav') # load varies from load_wav
+    wav_file = 'singing-01-003.wav'
+    # Demo: Voice Activity Detection
+    signal, sr = ta.load_wav(wav_file)
+    signal = signal[0]
+    starts, detection = mm.is_speech(signal, sr, winlen=0.02, hoplen=0.01, thresEnergy=0.6, speechlen=1)
+    plt.figure(1)
+    plt.plot(signal.numpy()/signal.abs().max().numpy())
+    plt.plot(starts.numpy(), detection.numpy())
+    plt.show()
+
+    # Demo: MFCC
+    (rate,sig) = wav.read(wav_file)
+    signal, sr = ta.load_wav(wav_file) # load varies from load_wav
     signal = signal[0]
 
     mfcc_feat = mfcc(sig, rate)
