@@ -4,7 +4,7 @@ This library provides common spectra features from an audio signal including MFC
 
 This library provides voice activity detection (VAD) based on energy. This library mimics the library [`VAD-python`](https://github.com/marsbroshok/VAD-python) but **PyTorch-style**.
 
-Use: Rui Wang. (2020, february 26). mechanicalsea/spectra: release v0.2.2 (Version 0.2.2).
+Use: Rui Wang. (2020, March 6). mechanicalsea/spectra: release v0.3.0 (Version 0.3.0).
 
 ## Installation
 
