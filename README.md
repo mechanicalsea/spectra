@@ -1,6 +1,8 @@
 # spectra_torch
 
-This library provides common spectra features from an audio signal including MFCCs and filter bank energies. This library mimics the library [`python_speech_features`](https://github.com/jameslyons/python_speech_features) but **Pytorch-style**.
+This library provides common spectra features from an audio signal including MFCCs and filter bank energies. This library mimics the library [`python_speech_features`](https://github.com/jameslyons/python_speech_features) but **PyTorch-style**.
+
+This library provides voice activity detection (VAD) based on energy. This library mimics the library `VAD-python` but **PyTorch-style**.
 
 Use: Rui Wang. (2020, february 26). mechanicalsea/spectra: release v0.2.2 (Version 0.2.2).
 
