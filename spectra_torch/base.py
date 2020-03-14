@@ -61,11 +61,11 @@ def framesig(signal, framelen, framehop, winfunc=lambda x: torch.ones((x,))):
 def magspec(frames, nfft):
     """
     Compute the magnitude spectrum of each frame.
+    The result of `torch.rfft` is separate pairs of real and complex.
     :param frames: (nframes, framelen)
     :param nfft:
     :return: (nframes, nfft//2+1)
     """
-    # torch.rfft 取窗口大小为 nfft，计算结果的实部与虚部分开
     if frames.shape[1] > nfft:
         logging.warning(
             'frame length (%d) is greater than FFT size (%d), frame will be truncated. Increase NFFT to avoid.',
@@ -79,7 +79,7 @@ def magspec(frames, nfft):
 
 def powspec(frames, nfft):
     """
-    Compute the power spectrum of each fram.
+    Compute the power spectrum of each frame.
     :param frames: (nframes, framelen)
     :param nfft:
     :return: (nframes, nfft//2+1)
@@ -133,7 +133,7 @@ def mfcc(signal, samplerate=16000, winlen=0.025, hoplen=0.01,
 
 
 def fbank(signal, samplerate=16000, winlen=0.025, hoplen=0.01,
-          nfilt=26, nfft=512, lowfreq=0, highfreq=None,
+          nfilt=26, nfft=None, lowfreq=0, highfreq=None,
           preemph=0.97, winfunc=lambda x: torch.ones((x,))):
     """
     Compute Mel-filterbank energy features from an audio signal.
@@ -149,6 +149,7 @@ def fbank(signal, samplerate=16000, winlen=0.025, hoplen=0.01,
     :param winfunc:
     :return: (nframes, nfilt), (frames,)
     """
+    nfft = nfft or calculate_nfft(samplerate, winlen)
     highfreq = highfreq or samplerate >> 1
     signal = preemphasis(signal, preemph)
     frames = framesig(signal, winlen * samplerate, hoplen * samplerate, winfunc)
@@ -160,11 +161,11 @@ def fbank(signal, samplerate=16000, winlen=0.025, hoplen=0.01,
     feat = torch.mm(pspec, fb.T)
     feat[feat == 0] = 2.220446049250313e-16  # 极小正数替换0
 
-    return feat, energy  # feat: size (winsize, nfilt)
+    return feat, energy  # feat: size (nframes, nfilt)
 
 
 def logfbank(signal, samplerate=16000, winlen=0.025, hoplen=0.01,
-             nfilt=26, nfft=512, lowfreq=0, highfreq=None,
+             nfilt=26, nfft=None, lowfreq=0, highfreq=None,
              preemph=0.97, winfunc=lambda x: torch.ones((x,))):
     """
     Compute log Mel-filterbank energy features from an audio signal as log(fbank).
@@ -180,6 +181,7 @@ def logfbank(signal, samplerate=16000, winlen=0.025, hoplen=0.01,
     :param winfunc:
     :return: (nframes, nfilt)
     """
+    nfft = nfft or calculate_nfft(samplerate, winlen)
     feat, _ = fbank(signal, samplerate, winlen, hoplen, nfilt,
                     nfft, lowfreq, highfreq, preemph, winfunc)
     return torch.log(feat)
@@ -232,7 +234,7 @@ def get_filterbanks(nfilt=26, nfft=512, samplerate=16000, lowfreq=0, highfreq=No
 
 def lifter(cepstra, ceplifter=22):
     """
-    Apply a cepstral lifer to the matrix of cepstra.
+    Apply a cepstral lifter to the matrix of cepstra.
     :param cepstra: (nframes, numcep)
     :param ceplifter:
     :return: (nframes, numcep)
@@ -270,62 +272,64 @@ def stereo2mono(signal):
         return signal
 
 
-def calculate_frequencies(frame, samplerate):
+def calculate_frequencies(frames, samplerate):
     """
-    Calculate half frequencies (0, sample rate) within a frame.
-    :param frame: (framelen,)
+    Calculate half frequencies of the sample rate.
+    :param frame: (nframes, framelen)
     :param samplerate:
     :return: (framelen//2,) or or (framelen//2 - 1,)
     """
     # 半频
-    n = len(frame)
-    t = frame.shape[0] * 1.0 / samplerate
+    winlen = frames.shape[1]
+    t = winlen * 1.0 / samplerate
     if samplerate % 2 == 0:
-        return torch.arange(1, n // 2 + 1) / t
+        return torch.arange(1, winlen // 2 + 1) / t
     else:
-        return torch.arange(1, (n - 1) // 2 + 1) / t
+        return torch.arange(1, (winlen - 1) // 2 + 1) / t
 
 
-def calculate_energy(frame):
+def calculate_energy(frames):
     """
-    Calculate energy of a frame by rfft.
-    :param frame: (framelen,)
-    :return: (framelen//2,) or (framelen//2 - 1,) that equals to half frequencies
+    Calculate energy of each frame by rfft.
+    :param frame: (nframes, framelen)
+    :return: (nframes, framelen//2) or (nframes, framelen//2 - 1)
+             that equals to half frequencies
     """
-    mag = torch.norm(torch.rfft(frame, 1), dim=1)[1:]
-    energy = mag.T ** 2
+    mag = torch.norm(torch.rfft(frames, 1), dim=2)[:,1:]
+    energy = mag ** 2
     return energy
 
 
-def freq_energy(frame, samplerate):
+def freq_energy(frames, samplerate):
     """
-    Calculate a pair of (frequencies, energy) of a frame.
-    :param frame: (framelen,)
+    Calculate a pair of (frequencies, energy) of each frame.
+    :param frame: (nframes, framelen)
     :param samplerate:
-    :return: both (framelen//2,) or (framelen//2-1,)
+    :return: freq (framelen//2,) or (framelen//2-1,)
+            energy (nframes, framelen//2) or (nframes, framelen//2 - 1) corresponding to freq
     """
-    freq = calculate_frequencies(frame, samplerate)
-    energy = calculate_energy(frame)
+    freq = calculate_frequencies(frames, samplerate)
+    energy = calculate_energy(frames)
     return freq, energy
 
 
-def energy_ratio(frame, samplerate, lowfreq, highfreq):
+def energy_ratio(freq, energy, thresEnergy, lowfreq, highfreq):
     """
-    Calculate the ratio between energy of speech band and total energy for window.
-    :param frame: (framelen,)
-    :param samplerate:
+    Calculate the ratio between energy of speech band and total energy for a frame.
+    :param freq: (winlen//2)
+    :param energy: (nframes, winlen//2)
     :param lowfreq:
     :param highfreq:
-    :return: float
+    :return: (nframes,)
     """
-    freq, energy = freq_energy(frame, samplerate)
-    voice_energy = torch.sum(energy[(freq > lowfreq) & (freq < highfreq)])
-    full_energy = torch.sum(energy)
-    if full_energy == 0: full_energy = 2.220446049250313e-16  # 极小正数替换0
-    return voice_energy / full_energy
+    voice_energy = torch.sum(energy[:, (freq > lowfreq) & (freq < highfreq)], dim=1)
+    full_energy = torch.sum(energy, dim=1)
+    full_energy[full_energy == 0] = 2.220446049250313e-16  # 极小正数替换 0
+    detection = (torch.div(voice_energy, full_energy) >= thresEnergy).type(torch.float32)
+    return detection
 
 
-def smooth_detection(detect, winlen, speechlen):
+def smooth_detection(detection, winlen, speechlen):
     """
     Apply median filter with length of {speechlen} to smooth detected speech regions
     :param detect: (nframes,)
@@ -337,26 +341,25 @@ def smooth_detection(detect, winlen, speechlen):
     if medianwin % 2 == 0:
         medianwin -= 1
     mid = (medianwin - 1) // 2
-    y = torch.zeros((len(detect), medianwin), dtype=detect.dtype)
-    y[:, mid] = detect
+    y = torch.zeros((len(detection), medianwin), dtype=detection.dtype)
+    y[:, mid] = detection
     for i in range(mid):
         j = mid - i
-        y[j:, i] = detect[:-j]
-        y[:j, i] = detect[0]
-        y[:-j, -(i + 1)] = detect[j:]
-        y[-j:, -(i + 1)] = detect[-1]
-    medianEnergy = torch.median(y.type(torch.float), dim=1).values.type(torch.bool)
+        y[j:, i] = detection[:-j]
+        y[:j, i] = detection[0]
+        y[:-j, -(i + 1)] = detection[j:]
+        y[-j:, -(i + 1)] = detection[-1]
+    medianEnergy, _ = torch.median(y.type(torch.float), dim=1)
     return medianEnergy
 
 
-def is_speech(signal, samplerate=16000, winlen=0.02, hoplen=0.01, thresEnergy=0.6, speechlen=0.5,
-              lowfreq=300, highfreq=3000, preemph=0.97):
+def is_speech(wav, samplerate=16000, winlen=0.02, hoplen=0.01, thresEnergy=0.6, speechlen=0.5, lowfreq=300, highfreq=3000, preemph=0.97):
     """
     Use signal energy to detect voice activity in PyTorch's Tensor.
     Detects speech regions based on ratio between speech band energy and total energy.
     Outputs are two tensor with the number of frames where the first output is start frame
         and the second output is to indicate voice activity.
-    :param signal: (time,)
+    :param wav: (time,)
     :param samplerate:
     :param winlen:
     :param hoplen:
@@ -365,18 +368,14 @@ def is_speech(signal, samplerate=16000, winlen=0.02, hoplen=0.01, thresEnergy=0.
     :param lowfreq:
     :param highfreq:
     :param preemph:
-    :return: (nframes,), (nframes)
+    :return: (nframes,), (nframes,), (time)
     """
-    if len(signal) < round(winlen * samplerate):
+    if len(wav) < round(winlen * samplerate):
         return torch.tensor([0]), torch.tensor([0])
-    signal = preemphasis(signal, preemph)
-    frames = framesig(signal, winlen * samplerate, hoplen * samplerate)
+    wav = preemphasis(wav, preemph=preemph)
+    frames = framesig(wav, winlen*samplerate, hoplen*samplerate)
+    freq, energy = freq_energy(frames, samplerate)
+    detection = energy_ratio(freq, energy, thresEnergy, lowfreq, highfreq)
+    detection = smooth_detection(detection, winlen, speechlen)
     starts = torch.arange(0, frames.shape[0]) * round(hoplen * samplerate)
-    detection = torch.zeros(frames.shape[0], dtype=torch.bool)
-    for i, frame in enumerate(frames):
-        ratioEnergy = energy_ratio(frame, samplerate, lowfreq, highfreq)
-        detection[i] = ratioEnergy > thresEnergy
-    if speechlen:
-        detection = smooth_detection(detection, winlen, speechlen)
-    return starts, detection
-
+    return detection, starts, wav
