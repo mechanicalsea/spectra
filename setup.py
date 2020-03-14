@@ -7,7 +7,7 @@ with open('requirements.txt', 'r') as fh:
   requirements = fh.read().split('\n')
 
 setup(name='spectra-torch',
-      version='0.3.0',
+      version='0.4.0',
       author='WangRui',
       author_email='rwang@tongji.edu.cn',
       description='Spectra Extraction based on PyTorch',

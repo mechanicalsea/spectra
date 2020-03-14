@@ -8,6 +8,7 @@ import torchaudio.functional as AF
 import math
 import logging
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Reference: https://github.com/jameslyons/python_speech_features
 # The style of this module mimics the `python_speech_features`
@@ -16,7 +17,7 @@ import logging
 # A details can be found in the reference.
 
 # Note that the precision of torch is float32 default. So there is a bit of gap between torch and numpy.
-
+# Focus on: input of a signal should be loaded on gpu.
 
 def preemphasis(signal, preemph=0.97):
     """
@@ -28,7 +29,7 @@ def preemphasis(signal, preemph=0.97):
     return torch.cat((signal[0:1], signal[1:] - preemph * signal[:-1]))
 
 
-def framesig(signal, framelen, framehop, winfunc=lambda x: torch.ones((x,))):
+def framesig(signal, framelen, framehop, winfunc=None):
     """
     Frame a signal into overlapping frames.
     :param signal: (time,)
@@ -38,24 +39,25 @@ def framesig(signal, framelen, framehop, winfunc=lambda x: torch.ones((x,))):
     :return: (nframes, framelen)
     """
     slen = len(signal)
-    framelen = round(framelen)  # round_half_up(framelen)
-    framehop = round(framehop)  # round_half_up(framehop)
+    framelen = round(framelen)
+    framehop = round(framehop)
     if slen <= framelen:
         nframes = 1
     else:
-        nframes = 1 + int(math.ceil((
-                                                1.0 * slen - framelen) / framehop))  # 1 + int(torch.ceil(torch.tensor((1.0 * slen - framelen) / framehop)))
+        nframes = 1 + int(math.ceil((1.0 * slen - framelen) / framehop))
 
     padlen = int((nframes - 1) * framehop + framelen)
 
-    zeros = torch.zeros((padlen - slen,))
+    zeros = torch.zeros((padlen - slen,), device=device)
     padsignal = torch.cat((signal, zeros))
 
-    indices = torch.arange(0, framelen).view((1, -1)) \
-              + torch.arange(0, nframes * framehop, framehop).view((-1, 1))
+    indices = torch.arange(0, framelen, device=device).view((1, -1)) \
+              + torch.arange(0, nframes * framehop, framehop, device=device).view((-1, 1))
     frames = padsignal[indices]
-    win = winfunc(framelen).view((1, -1))
-    return frames * win
+    if winfunc:
+        win = winfunc(framelen).view((1, -1))
+        frames = frames * win
+    return frames
 
 
 def magspec(frames, nfft):
@@ -72,7 +74,7 @@ def magspec(frames, nfft):
             frames.shape[1], nfft)
         frames = frames[:, :nfft]
     else:
-        frames = torch.cat((frames, torch.zeros((frames.shape[0], nfft - frames.shape[1]))), 1)
+        frames = torch.cat((frames, torch.zeros((frames.shape[0], nfft - frames.shape[1]), device=device)), 1)
     complex_spec = torch.rfft(frames, 1)
     return torch.norm(complex_spec, dim=2)
 
@@ -100,11 +102,10 @@ def calculate_nfft(samplerate, winlen):
         nfft <<= 1
     return nfft
 
-
 def mfcc(signal, samplerate=16000, winlen=0.025, hoplen=0.01,
          numcep=13, nfilt=26, nfft=None, lowfreq=0, highfreq=None,
-         preemph=0.97, ceplifter=22, plusEnergy=True,
-         winfunc=lambda x: torch.ones((x,))):
+         preemph=0.97, ceplifter=22, plusEnergy=True, dct=None,
+         winfunc=lambda x: torch.ones((x,), device=device)):
     """
     Compute MFCC from an audio signal.
     :param signal: (time,)
@@ -126,7 +127,9 @@ def mfcc(signal, samplerate=16000, winlen=0.025, hoplen=0.01,
     feat, energy = fbank(signal, samplerate, winlen, hoplen, nfilt,
                          nfft, lowfreq, highfreq, preemph, winfunc)
     feat = torch.log(feat)
-    feat = feat.mm(AF.create_dct(numcep, nfilt, norm='ortho'))
+    if not dct:
+        dct = AF.create_dct(numcep, nfilt, norm='ortho').to(device)
+    feat = feat.mm(dct)
     feat = lifter(feat, ceplifter)
     if plusEnergy: feat[:, 0] = torch.log(energy)
     return feat
@@ -134,7 +137,7 @@ def mfcc(signal, samplerate=16000, winlen=0.025, hoplen=0.01,
 
 def fbank(signal, samplerate=16000, winlen=0.025, hoplen=0.01,
           nfilt=26, nfft=None, lowfreq=0, highfreq=None,
-          preemph=0.97, winfunc=lambda x: torch.ones((x,))):
+          preemph=0.97, winfunc=lambda x: torch.ones((x,), device=device)):
     """
     Compute Mel-filterbank energy features from an audio signal.
     :param signal: (time,)
@@ -166,7 +169,7 @@ def fbank(signal, samplerate=16000, winlen=0.025, hoplen=0.01,
 
 def logfbank(signal, samplerate=16000, winlen=0.025, hoplen=0.01,
              nfilt=26, nfft=None, lowfreq=0, highfreq=None,
-             preemph=0.97, winfunc=lambda x: torch.ones((x,))):
+             preemph=0.97, winfunc=lambda x: torch.ones((x,), device=device)):
     """
     Compute log Mel-filterbank energy features from an audio signal as log(fbank).
     :param signal: (time,)
@@ -220,10 +223,10 @@ def get_filterbanks(nfilt=26, nfft=512, samplerate=16000, lowfreq=0, highfreq=No
 
     lowmel = hz2mel(lowfreq)
     highmel = hz2mel(highfreq)
-    melpoints = torch.linspace(lowmel, highmel, nfilt + 2)
+    melpoints = torch.linspace(lowmel, highmel, nfilt + 2, device=device)
     bin = torch.floor((nfft + 1) * mel2hz(melpoints) / samplerate)
 
-    fbank = torch.zeros((nfilt, (nfft >> 1) + 1))
+    fbank = torch.zeros((nfilt, (nfft >> 1) + 1), device=device)
     for j in range(0, nfilt):
         for i in range(int(bin[j]), int(bin[j + 1])):
             fbank[j, i] = (i - bin[j]) / (bin[j + 1] - bin[j])
@@ -241,7 +244,7 @@ def lifter(cepstra, ceplifter=22):
     """
     if ceplifter > 0:
         nframes, numcep = cepstra.shape
-        lift = 1 + (ceplifter / 2.) * torch.sin(math.pi * torch.arange(numcep) / ceplifter)
+        lift = 1 + (ceplifter / 2.) * torch.sin(math.pi * torch.arange(numcep, device=device) / ceplifter)
         return lift * cepstra
     else:
         return cepstra
@@ -283,9 +286,9 @@ def calculate_frequencies(frames, samplerate):
     winlen = frames.shape[1]
     t = winlen * 1.0 / samplerate
     if samplerate % 2 == 0:
-        return torch.arange(1, winlen // 2 + 1) / t
+        return torch.arange(1, winlen // 2 + 1, device=device) / t
     else:
-        return torch.arange(1, (winlen - 1) // 2 + 1) / t
+        return torch.arange(1, (winlen - 1) // 2 + 1, device=device) / t
 
 
 def calculate_energy(frames):
@@ -341,7 +344,7 @@ def smooth_detection(detection, winlen, speechlen):
     if medianwin % 2 == 0:
         medianwin -= 1
     mid = (medianwin - 1) // 2
-    y = torch.zeros((len(detection), medianwin), dtype=detection.dtype)
+    y = torch.zeros((len(detection), medianwin), dtype=detection.dtype, device=device)
     y[:, mid] = detection
     for i in range(mid):
         j = mid - i
@@ -353,7 +356,8 @@ def smooth_detection(detection, winlen, speechlen):
     return medianEnergy
 
 
-def is_speech(wav, samplerate=16000, winlen=0.02, hoplen=0.01, thresEnergy=0.6, speechlen=0.5, lowfreq=300, highfreq=3000, preemph=0.97):
+def is_speech(wav, samplerate=16000, winlen=0.02, hoplen=0.01, thresEnergy=0.6, speechlen=0.5,
+              lowfreq=300, highfreq=3000, preemph=0.97, winfunc=lambda x: torch.ones((x,), device=device)):
     """
     Use signal energy to detect voice activity in PyTorch's Tensor.
     Detects speech regions based on ratio between speech band energy and total energy.
@@ -373,9 +377,9 @@ def is_speech(wav, samplerate=16000, winlen=0.02, hoplen=0.01, thresEnergy=0.6, 
     if len(wav) < round(winlen * samplerate):
         return torch.tensor([0]), torch.tensor([0])
     wav = preemphasis(wav, preemph=preemph)
-    frames = framesig(wav, winlen*samplerate, hoplen*samplerate)
+    frames = framesig(wav, winlen*samplerate, hoplen*samplerate, winfunc)
     freq, energy = freq_energy(frames, samplerate)
     detection = energy_ratio(freq, energy, thresEnergy, lowfreq, highfreq)
     detection = smooth_detection(detection, winlen, speechlen)
-    starts = torch.arange(0, frames.shape[0]) * round(hoplen * samplerate)
+    starts = torch.arange(0, frames.shape[0], device=device) * round(hoplen * samplerate)
     return detection, starts, wav

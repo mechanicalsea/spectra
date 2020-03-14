@@ -1,10 +1,14 @@
 # spectra_torch
 
+> Considering the [pytorch-kalda](https://github.com/mravanelli/pytorch-kaldi) is presented, so it is more practical to use it.
+> Also, [SpeechBrain](https://speechbrain.github.io/index.html), A PyTorch-based Speech Toolkit, is coming. I am looking forward to a nice step on speech.
+> To conclude, this package is used to learn spectra of a signal, so it is valuable at all.
+
 This library provides common spectra features from an audio signal including MFCCs and filter bank energies. This library mimics the library [`python_speech_features`](https://github.com/jameslyons/python_speech_features) but **PyTorch-style**.
 
 This library provides voice activity detection (VAD) based on energy. This library mimics the library [`VAD-python`](https://github.com/marsbroshok/VAD-python) but **PyTorch-style**.
 
-Use: Rui Wang. (2020, March 6). mechanicalsea/spectra: release v0.3.0 (Version 0.3.0).
+Use: Rui Wang. (2020, March 14). mechanicalsea/spectra: release v0.4.0 (Version 0.4.0).
 
 ## Installation
 
@@ -33,17 +37,24 @@ Supported features:
 
 Here are [examples](https://github.com/mechanicalsea/spectra/blob/master/examples.py).
 
-Easy demo:
+### Easy demo:
 
 ```python
+# Ensure cuda is available.
 import spectra_torch.base as mm
 import torchaudio as ta
 
-sig, sr = ta.load_wav('singing-01-003.wav')
-sig = sig[0]
+sig, sr = ta.load_wav('piece_20_32k.wav')
+sig = sig[0].cuda()
 mfcc = mm.mfcc(sig, sr) # MFCC
-starts, detection = mm.is_speech(sig, sr, speechlen=1) # VAD
+starts, detection = mm.is_speech(sig, sr, speechlen=0.5) # VAD
 ```
+
+### Tutorial
+
+Tutorials of MFCC and VAD is provided at [notebooks](https://github.com/mechanicalsea/spectra/tree/master/notebooks).
+
+Step-by-step description is presented. Welcome to enjoy it.
 
 ## Performance
 
@@ -80,3 +91,7 @@ def is_speech(signal, samplerate=16000, winlen=0.02, hoplen=0.01,
 - `python_speeck_features`: https://github.com/jameslyons/python_speech_features
 - `VAD-python`: https://github.com/marsbroshok/VAD-python
 - `pythonaudio`: https://pytorch.org/audio/_modules/torchaudio/functional.html
+
+Thanks for you attention.
+
+Free for question to my email (rwang@tongji.edu.cn).
