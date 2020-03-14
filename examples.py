@@ -79,5 +79,5 @@ if __name__ == "__main__":
 
     print("Gap loading %.5f(scipy %.5f, torchaudio %.5f)" % (((t1-s1) - (t2-s2))/n, (t1-s1)/n, (t2-s2)/n))
     print("Gap mfcc %.5f(python_speech_features %.5f, spectra_torch %.5f)" % (((t3-s3) - (t4-s4))/n, (t3-s3)/n, (t4-s4)/n))
-    print("Negative means the torch-style can run faster than the numpy-style.")
-    print("Otherwise How a pity!")
+    print("Negative means the torch-style can run slower than the numpy-style.")
+    print("Otherwise What a nice day!")
