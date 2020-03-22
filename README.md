@@ -6,7 +6,7 @@
 
 **News**: Tutorials continue to come!
 
-- 2020.03.22: The bandpass filter is [here](https://github.com/mechanicalsea/spectra/blob/master/notebooks/PyTorch Filter.ipynb).
+- 2020.03.22: The bandpass filter is [here](https://github.com/mechanicalsea/spectra/blob/master/notebooks/PyTorch%20Filter.ipynb).
 
 This library provides common spectra features from an audio signal including MFCCs and filter bank energies. This library mimics the library [`python_speech_features`](https://github.com/jameslyons/python_speech_features) but **PyTorch-style**.
 
