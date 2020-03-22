@@ -4,6 +4,10 @@
 > Also, [SpeechBrain](https://speechbrain.github.io/index.html), A PyTorch-based Speech Toolkit, is coming. I am looking forward to a nice step on speech.
 > To conclude, this package is used to learn spectra of a signal, so it is valuable at all.
 
+**News**: Tutorials continue to come!
+
+- 2020.03.22: The bandpass filter is [here](https://github.com/mechanicalsea/spectra/blob/master/notebooks/PyTorch Filter.ipynb).
+
 This library provides common spectra features from an audio signal including MFCCs and filter bank energies. This library mimics the library [`python_speech_features`](https://github.com/jameslyons/python_speech_features) but **PyTorch-style**.
 
 This library provides voice activity detection (VAD) based on energy. This library mimics the library [`VAD-python`](https://github.com/marsbroshok/VAD-python) but **PyTorch-style**.
