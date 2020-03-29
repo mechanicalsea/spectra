@@ -1,12 +1,13 @@
 # spectra_torch
 
-> Considering the [pytorch-kalda](https://github.com/mravanelli/pytorch-kaldi) is presented, so it is more practical to use it.
+> Considering the [pytorch-kaldi](https://github.com/mravanelli/pytorch-kaldi) is presented, so it is more practical to use it.
 > Also, [SpeechBrain](https://speechbrain.github.io/index.html), A PyTorch-based Speech Toolkit, is coming. I am looking forward to a nice step on speech.
 > To conclude, this package is used to learn spectra of a signal, so it is valuable at all.
 
-**News**: Tutorials continue to come!
+**News**: Tutorials continue to come! [Jupiter Notebook Viewer](https://nbviewer.jupyter.org/) for "Reaload?"er.
 
 - 2020.03.22: The bandpass filter is [here](https://github.com/mechanicalsea/spectra/blob/master/notebooks/PyTorch%20Filter.ipynb).
+- 2020.03.29: The parameterized bandpass filter is uploaded as "[Parameter Filter.ipynb](https://github.com/mechanicalsea/spectra/blob/master/notebooks/Parameter%20Filter.ipynb)". Also, [core.py](https://github.com/mechanicalsea/spectra/blob/master/spectra_torch/core.py) add the new feature.
 
 This library provides common spectra features from an audio signal including MFCCs and filter bank energies. This library mimics the library [`python_speech_features`](https://github.com/jameslyons/python_speech_features) but **PyTorch-style**.
 
@@ -88,6 +89,16 @@ def fbank(signal, samplerate=16000, winlen=0.025, hoplen=0.01,
 def is_speech(signal, samplerate=16000, winlen=0.02, hoplen=0.01, 
               thresEnergy=0.6, speechlen=0.5, lowfreq=300, highfreq=3000, 
               preemph=0.97)
+```
+
+## Parameterized Bandpass Filter
+
+```python
+class PFilter(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, 
+                 padding=0, dilation=1, groups=1, bias=False, device="cpu",
+                 mode='bandpass',sample_rate=16000, min_hz=50, max_hz=None,
+                 min_band_hz=50, win_fn="Hamming")
 ```
 
 ## Reference
